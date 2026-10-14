@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getFavorites, addFavorite, removeFavorite } from "@/lib/favorites";
 
@@ -6,19 +6,27 @@ export function useFavorites({ onUnauthenticated } = {}) {
   const { user } = useAuth();
   const [favorites, setFavorites] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reloadCount, setReloadCount] = useState(0);
 
   useEffect(() => {
     if (!user) {
       setFavorites(new Set());
+      setError(false);
       setLoading(false);
       return;
     }
+    let cancelled = false;
     setLoading(true);
+    setError(false);
     getFavorites(user.id)
-      .then((names) => setFavorites(new Set(names)))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [user]);
+      .then((names) => { if (!cancelled) setFavorites(new Set(names)); })
+      .catch(() => { if (!cancelled) setError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [user?.id, reloadCount]);
+
+  const reload = useCallback(() => setReloadCount((c) => c + 1), []);
 
   const toggle = async (beachName) => {
     if (!user) { onUnauthenticated?.(); return; }
@@ -44,5 +52,5 @@ export function useFavorites({ onUnauthenticated } = {}) {
     }
   };
 
-  return { favorites, loading, toggle };
+  return { favorites, loading, error, reload, toggle };
 }

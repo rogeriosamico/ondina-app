@@ -12,6 +12,7 @@ import SwellPowerBar from "@/components/SwellPowerBar";
 import InfoBlock from "@/components/InfoBlock";
 import DateFilterModal from "@/components/DateFilterModal";
 import DayCard from "@/components/DayCard";
+import { ErrorState } from "@/components/StateMessage";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -65,10 +66,12 @@ export default function BeachPage() {
   const [tideData, setTideData] = useState(null);
   const [tideError, setTideError] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [nextDaysData, setNextDaysData] = useState(null);
   const [nextDaysLoading, setNextDaysLoading] = useState(false);
   const [nextDaysError, setNextDaysError] = useState(false);
+  const [nextDaysRetry, setNextDaysRetry] = useState(0);
   const nextDaysCache = useRef({});
   const maxWeekStart = addDays(maxIso, -6);
   // A semana exibida acompanha o dia selecionado na aba "Dia" — sempre inclui pageDay,
@@ -104,65 +107,65 @@ export default function BeachPage() {
 
   useEffect(() => {
     if (!beach) return;
+    const controller = new AbortController();
     setLoading(true);
-    setError(null);
+    setError(false);
     setBeachData(null);
     setTideData(null);
     setTideError(false);
 
-    fetchForecast(beach, pageDay)
+    fetchForecast(beach, pageDay, controller.signal)
       .then(forecast => {
         setBeachData(forecast);
         setScrubHour(currentHour);
         setLoading(false);
       })
-      .catch(() => {
-        setError("Não foi possível carregar os dados.");
+      .catch(err => {
+        if (err.name === "AbortError") return;
+        setError(true);
         setLoading(false);
       });
 
-    fetchTide(pageDay, beach)
+    fetchTide(pageDay, beach, controller.signal)
       .then(tide => setTideData(tide))
-      .catch(() => setTideError(true));
-  }, [beach, pageDay, currentHour]);
+      .catch(err => { if (err.name !== "AbortError") setTideError(true); });
+
+    return () => controller.abort();
+  }, [beach, pageDay, currentHour, retryCount]);
 
   useEffect(() => {
     if (!beach || view !== "proximos") return;
 
     const cached = nextDaysCache.current[weekStart];
     if (cached) {
-      setNextDaysData(cached.data ?? null);
-      setNextDaysError(!!cached.error);
+      setNextDaysData(cached);
+      setNextDaysError(false);
       setNextDaysLoading(false);
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     setNextDaysLoading(true);
     setNextDaysError(false);
     setNextDaysData(null);
 
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-    Promise.all(days.map(day => fetchForecast(beach, day)))
+    Promise.all(days.map(day => fetchForecast(beach, day, controller.signal)))
       .then(results => {
         const data = days.map((day, i) => ({ date: day, cond: results[i]?.cond }));
-        nextDaysCache.current[weekStart] = { data };
-        if (!cancelled) {
-          setNextDaysData(data);
-          setNextDaysLoading(false);
-        }
+        nextDaysCache.current[weekStart] = data;
+        setNextDaysData(data);
+        setNextDaysLoading(false);
       })
-      .catch(() => {
-        nextDaysCache.current[weekStart] = { error: true };
-        if (!cancelled) {
-          setNextDaysError(true);
-          setNextDaysLoading(false);
-        }
+      .catch(err => {
+        if (err.name === "AbortError") return;
+        setNextDaysError(true);
+        setNextDaysLoading(false);
       });
 
-    return () => { cancelled = true; };
-  }, [beach, view, weekStart]);
+    return () => controller.abort();
+  }, [beach, view, weekStart, nextDaysRetry]);
 
   useEffect(() => {
     if (!user || favLoading) return;
@@ -281,7 +284,8 @@ export default function BeachPage() {
         </div>
 
         <TabsContent value="hoje" className="mt-0">
-          <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--surface-primary)" }}>
+          {/* Em erro, some a barra de condição/data — a tela fica só com o ErrorState */}
+          {!error && <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--surface-primary)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--spacing-md)", padding: "var(--spacing-md)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "var(--spacing-md)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--spacing-sm)" }}>
@@ -331,15 +335,13 @@ export default function BeachPage() {
                 </Button>
               </div>
             </div>
-          </div>
+          </div>}
 
           <div style={{ padding: "16px 16px 0" }}>
             {loading ? (
               <BeachDetailSkeleton />
             ) : error ? (
-              <div role="alert" style={{ fontSize: "var(--font-size-body)", color: "var(--text-storm)", textAlign: "center", padding: "48px 0" }}>
-                {error}
-              </div>
+              <ErrorState onRetry={() => setRetryCount(c => c + 1)} />
             ) : beachData && hourData ? (
 
               <div>
@@ -414,7 +416,7 @@ export default function BeachPage() {
 
         <TabsContent value="proximos" className="mt-0">
           <div style={{ padding: "16px 16px 0" }}>
-            <div className="flex items-center gap-[var(--spacing-xs)] mb-[var(--spacing-md)]">
+            {!nextDaysError && <div className="flex items-center gap-[var(--spacing-xs)] mb-[var(--spacing-md)]">
               <Button
                 variant="outline"
                 size="icon"
@@ -443,16 +445,14 @@ export default function BeachPage() {
               >
                 <ChevronLeft className="w-5 h-5 rotate-180" />
               </Button>
-            </div>
+            </div>}
 
             {nextDaysLoading ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-sm)" }}>
                 {Array.from({ length: 7 }).map((_, i) => <DayCardSkeleton key={i} />)}
               </div>
             ) : nextDaysError ? (
-              <div role="alert" style={{ fontSize: "var(--font-size-body)", color: "var(--text-storm)", textAlign: "center", padding: "48px 0" }}>
-                Não foi possível carregar os dados.
-              </div>
+              <ErrorState onRetry={() => setNextDaysRetry(c => c + 1)} />
             ) : nextDaysData ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-sm)" }}>
                 {nextDaysData.map(({ date, cond }) => (
@@ -470,7 +470,7 @@ export default function BeachPage() {
         </TabsContent>
       </Tabs>
 
-      <div style={{ padding: "24px 16px 0" }}>
+      {!(view === "hoje" ? error : nextDaysError) && <div style={{ padding: "24px 16px 0" }}>
         <Button
           className="w-full h-12 rounded-[var(--radius-minimal)] gap-2"
           onClick={() => toggle(beach)}
@@ -482,7 +482,7 @@ export default function BeachPage() {
           />
           {favorites.has(beach) ? 'Praia favoritada' : 'Favoritar praia'}
         </Button>
-      </div>
+      </div>}
 
       <AuthGateModal
         open={authGateOpen}

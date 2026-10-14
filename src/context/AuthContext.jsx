@@ -10,10 +10,10 @@ export function AuthProvider({ children }) {
   const [authModalView, setAuthModalView] = useState("login");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => setUser(session?.user ?? null))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);

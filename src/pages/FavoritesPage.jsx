@@ -4,28 +4,55 @@ import { Heart } from "lucide-react";
 import Header from "@/components/Header";
 import BeachCard from "@/components/BeachCard";
 import { HomeCardSkeleton } from "@/components/Skeleton";
+import StateMessage, { ErrorState } from "@/components/StateMessage";
 import { useFavorites } from "@/hooks/useFavorites";
 import { BEACHES_META, CONDITIONS } from "@/lib/constants";
 import { fetchForecastAll } from "@/lib/api";
+import { getCachedList, saveCachedList } from "@/lib/listCache";
 import { getToday } from "@/lib/dates";
 
 export default function FavoritesPage() {
   const navigate = useNavigate();
-  const { favorites, loading: favLoading } = useFavorites();
-  const [allBeaches, setAllBeaches] = useState([]);
+  const { favorites, loading: favLoading, error: favError, reload: reloadFavorites } = useFavorites();
+  const [allBeaches, setAllBeaches] = useState(() => getCachedList(getToday()) ?? []);
   const [beachLoading, setBeachLoading] = useState(true);
+  const [beachError, setBeachError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const currentHour = new Date().getHours();
   const todayIso = getToday();
 
   useEffect(() => {
-    fetchForecastAll(todayIso)
-      .then(({ beaches }) => setAllBeaches(beaches))
-      .catch(() => {})
-      .finally(() => setBeachLoading(false));
-  }, [todayIso]);
+    const controller = new AbortController();
+    const cached = getCachedList(todayIso);
+    if (cached) setAllBeaches(cached);
+    setBeachLoading(!cached);
+    setBeachError(false);
+
+    fetchForecastAll(todayIso, controller.signal)
+      .then(({ beaches, total, loaded }) => {
+        setAllBeaches(beaches);
+        setBeachLoading(false);
+        if (loaded === total) saveCachedList(todayIso, beaches);
+      })
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+        setBeachLoading(false);
+        if (!getCachedList(todayIso)) setBeachError(true);
+      });
+
+    return () => controller.abort();
+  }, [todayIso, retryCount]);
 
   const loading = favLoading || beachLoading;
   const favBeaches = allBeaches.filter((b) => favorites.has(b.beach));
+  // Favoritos existem mas nenhum veio na resposta da API: trata como falha, não como lista vazia.
+  const missingAll = !loading && !beachError && favorites.size > 0 && favBeaches.length === 0;
+  const hasError = favError || beachError || missingAll;
+
+  const retry = () => {
+    if (favError) reloadFavorites();
+    if (beachError || missingAll) setRetryCount((c) => c + 1);
+  };
 
   const goToBeach = (beachName) => {
     const slug = BEACHES_META[beachName]?.slug;
@@ -46,11 +73,10 @@ export default function FavoritesPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-sm)" }}>
             {[0, 1, 2].map((i) => <HomeCardSkeleton key={i} />)}
           </div>
+        ) : hasError ? (
+          <ErrorState onRetry={retry} />
         ) : favorites.size === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--spacing-md)", paddingTop: 64, color: "var(--text-secondary)" }}>
-            <Heart size={40} strokeWidth={1.5} />
-            <span className="text-token-body">Nenhuma praia favoritada ainda.</span>
-          </div>
+          <StateMessage icon={Heart} description="Nenhuma praia favoritada ainda." />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-sm)" }}>
             {favBeaches.map((b) => {

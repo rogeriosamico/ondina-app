@@ -8,6 +8,7 @@ import { HomeCardSkeleton } from "@/components/Skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import BeachCard from "@/components/BeachCard";
+import StateMessage, { ErrorState } from "@/components/StateMessage";
 import DateFilterModal from "@/components/DateFilterModal";
 import { BEACHES, BEACHES_META, CONDITIONS, COND_DESCS, COND_ORDER } from "@/lib/constants";
 import { fetchForecastAll } from "@/lib/api";
@@ -152,13 +153,10 @@ export default function HomeScreen() {
           ? BEACHES.map((_, i) => <HomeCardSkeleton key={i} />)
           : error && rawBeaches.length === 0
             ? (
-              <div style={{ textAlign: "center", padding: "40px 0" }}>
-                <div style={{ fontSize: "var(--font-size-body)", color: "var(--text-secondary)", marginBottom: 16 }}>Não foi possível carregar as praias.</div>
-                <Button variant="outline" onClick={() => setRetryCount(c => c + 1)}>Tentar novamente</Button>
-              </div>
+              <ErrorState onRetry={() => setRetryCount(c => c + 1)} />
             )
             : filtered.length === 0
-              ? <div style={{ fontSize: "var(--font-size-body)", color: "var(--text-secondary)", padding: "24px 0" }}>Nenhuma praia encontrada.</div>
+              ? <StateMessage icon={Search} description="Nenhuma praia encontrada." compact />
               : filtered.map(b => {
                 const c = CONDITIONS[b.cond];
                 const meta = BEACHES_META[b.beach];
@@ -171,7 +169,7 @@ export default function HomeScreen() {
                     country={meta?.country}
                     height={h?.height}
                     condition={b.cond}
-                    label={c.label}
+                    label={c?.label}
                     onClick={() => goToBeach(b.beach)}
                   />
                 );

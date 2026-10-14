@@ -401,7 +401,7 @@ Estados de loading:
 
       <div style={{ padding: "16px 16px 0" }}>
         {/* loading → <BeachDetailSkeleton /> */}
-        {/* erro → mensagem com --text-storm */}
+        {/* erro → <ErrorState onRetry={...} /> */}
         {/* dados → */}
           {/* "Condições às [hora]" + Badge horário */}
           {/* InfoBlock × 3 */}
@@ -414,7 +414,7 @@ Estados de loading:
       <div style={{ padding: "16px 16px 0" }}>
         {/* intervalo de 7 dias (weekStart..weekStart+6) com ChevronLeft/ChevronRight — só 1 passo à frente é possível (limite hoje+7 da API) */}
         {/* loading → 7x <DayCardSkeleton /> */}
-        {/* erro → mensagem com --text-storm */}
+        {/* erro → <ErrorState onRetry={...} /> */}
         {/* dados → 7x <DayCard /> (hoje + 6 dias), clique navega para a aba "Dia" com a data do card */}
       </div>
     </TabsContent>
@@ -479,5 +479,5 @@ Ao criar uma tela nova:
 - Usar `Header variant="beach"` com back button se for tela interna
 - Aplicar somente tokens existentes — não criar tokens novos sem atualizar `src/index.css`
 - Se precisar de um novo componente de domínio, criá-lo em `src/components/` seguindo o padrão de props dos existentes
-- Estados obrigatórios: loading (Skeleton), erro (mensagem com `--text-storm`) e vazio
+- Estados obrigatórios: loading (Skeleton), erro (`ErrorState` com retry) e vazio (`StateMessage`) — ambos em `src/components/StateMessage.jsx`, neutros
 - Adicionar a rota em `src/App.jsx`

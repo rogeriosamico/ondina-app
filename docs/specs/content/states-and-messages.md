@@ -18,7 +18,7 @@ Exibe `DayCardSkeleton` em quantidade igual a 7 (hoje + 6 dias). Não exibe text
 "Nenhuma praia encontrada."
 ```
 
-Tom neutro. Exibido quando a busca por texto não retorna correspondências. Cor: `--text-secondary`.
+Tom neutro. Exibido quando a busca por texto não retorna correspondências. `StateMessage` com ícone `Search`, variante `compact`. Cor: `--text-secondary`.
 
 ## Maré indisponível
 
@@ -28,10 +28,24 @@ Tom neutro. Exibido quando a busca por texto não retorna correspondências. Cor
 
 Tom neutro, sem alarme. Exibido dentro de um bloco com ícone de informação (`opacity: 0.4`), fundo `--surface-terciary`, radius `--radius-minimal`. Não usa cor de condição.
 
-## Erro de previsão
+## Erro de carregamento
 
 ```
-"Não foi possível carregar os dados."
+Título: "Não deu pra carregar."
+Texto:  "Confere a conexão e tenta de novo."
+Botão:  "Tentar de novo"
 ```
 
-Exibido centralizado, cor `--text-storm` — única exceção ao uso de cor de condição para estado de sistema. O erro de carregamento de previsão é tratado como situação de atenção do usuário, não erro genérico de interface.
+Componente `ErrorState` (`src/components/StateMessage.jsx`). Usado em toda falha de carregamento: lista de praias (Home), detalhe da praia, aba Semana e Favoritos. Ícone `CloudOff` 40px (stroke 1.5), título `--text-primary` em body-bold, texto `--text-secondary`, botão `outline`. Sempre neutro — sem cor de condição. Sempre com retry.
+
+Na página da praia, o erro ocupa a tela sozinho: somem a barra de condição/data (aba Dia), a navegação de semana (aba Semana) e o botão "Favoritar praia".
+
+Em Favoritos, aparece quando a lista de favoritos (Supabase) ou a previsão (API) falha, ou quando nenhuma das praias favoritadas veio na resposta. Nunca cai no estado vazio por causa de uma falha.
+
+## Favoritos vazio
+
+```
+"Nenhuma praia favoritada ainda."
+```
+
+`StateMessage` com ícone `Heart`. Cor: `--text-secondary`.

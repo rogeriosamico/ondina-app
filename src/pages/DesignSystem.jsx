@@ -33,6 +33,7 @@ import InfoBlock from "@/components/InfoBlock";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import TideChart from "@/components/TideChart";
 import TimeSlider from "@/components/TimeSlider";
+import StateMessage, { ErrorState } from "@/components/StateMessage";
 
 /** Reads a live CSS variable value from :root */
 function getCSSVar(name) {
@@ -76,6 +77,7 @@ const DesignSystem = () => {
         { id: 'swellpower', label: 'Swell Power Bar' },
         { id: 'tidechart', label: 'Tide Chart' },
         { id: 'dropdown', label: 'Dropdown Menu' },
+        { id: 'estados', label: 'Estados' },
       ]
     },
     {
@@ -114,6 +116,7 @@ const DesignSystem = () => {
       if (activeSubTab === 'swellpower') return <SwellPowerSection />;
       if (activeSubTab === 'tidechart') return <TideChartSection />;
       if (activeSubTab === 'dropdown') return <DropdownMenuSection />;
+      if (activeSubTab === 'estados') return <StatesSection />;
     }
     if (activeTab === 'auth') {
       if (activeSubTab === 'auth-login') return <AuthPagePreview title="Login"><LoginPage /></AuthPagePreview>;
@@ -815,6 +818,34 @@ const InfoBlockSection = () => (
     </div>
   </div>
 );
+
+const StatesSection = () => {
+  const box = { border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-minimal)' };
+  const caption = { fontSize: 'var(--font-size-subtitle)', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 'var(--spacing-sm)' };
+  return (
+    <div style={{ maxWidth: 400 }}>
+      <SectionTitle>Estados</SectionTitle>
+      <p style={{ fontSize: 'var(--font-size-body)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
+        <code style={{ fontFamily: 'monospace' }}>StateMessage</code> cobre vazio e erro: ícone lucide 40px (stroke 1.5), título opcional em body-bold, texto em body e ação opcional com <code style={{ fontFamily: 'monospace' }}>Button variant="outline"</code>. Sempre neutro — cor é só para condição do mar. Use <code style={{ fontFamily: 'monospace' }}>compact</code> dentro de abas ou listas.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+        <div>
+          <div style={box}><ErrorState onRetry={() => {}} /></div>
+          <p style={caption}>ErrorState — falha de carregamento, sempre com "Tentar de novo"</p>
+        </div>
+        <div>
+          <div style={box}><StateMessage icon={Heart} description="Nenhuma praia favoritada ainda." /></div>
+          <p style={caption}>Vazio — Favoritos</p>
+        </div>
+        <div>
+          <div style={box}><StateMessage icon={Search} description="Nenhuma praia encontrada." compact /></div>
+          <p style={caption}>Vazio — busca sem resultado</p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const SwellPowerSection = () => (
   <div style={{ maxWidth: 400 }}>
